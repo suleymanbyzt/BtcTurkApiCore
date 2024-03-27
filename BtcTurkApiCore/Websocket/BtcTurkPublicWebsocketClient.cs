@@ -2,7 +2,6 @@
 using System.Text;
 using BtcTurkApiCore.Constants;
 using BtcTurkApiCore.Extensions;
-using BtcTurkApiCore.Models.WebSocket;
 using BtcTurkApiCore.Models.WebSocket.Responses;
 using BtcTurkApiCore.Websocket.Interfaces;
 

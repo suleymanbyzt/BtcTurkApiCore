@@ -25,7 +25,7 @@ namespace BtcTurkApiCore.Extensions
                     client.BaseAddress = new Uri("https://api.btcturk.com");
                     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 })
-                .AddHttpMessageHandler(_ => new AuthenticatedHttpClientHandler(options.PublicKey, options.PrivateKey));
+                .AddHttpMessageHandler(_ => new AuthenticatedHttpClientHandler(options.PublicKey, options.PrivateKey, options.Nonce));
 
             services.AddSingleton<IBtcTurkPublicWebSocketClient, BtcTurkPublicWebsocketClient>();
             services.AddSingleton<IBtcTurkPrivateWebSocketClient, BtcTurkPrivateWebsocketClient>();

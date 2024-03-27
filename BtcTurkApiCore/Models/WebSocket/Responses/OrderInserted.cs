@@ -1,6 +1,4 @@
-﻿using BtcTurkApiCore.Models.Api.Enums;
-
-namespace BtcTurkApiCore.Models.WebSocket.Responses;
+﻿namespace BtcTurkApiCore.Models.WebSocket.Responses;
 
 public class OrderInserted
 {

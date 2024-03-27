@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using BtcTurkApiCore.Extensions;
 using BtcTurkApiCore.Models.Options;
-using BtcTurkApiCore.Models.WebSocket;
 using BtcTurkApiCore.Models.WebSocket.Responses;
 using BtcTurkApiCore.Websocket.Interfaces;
 
@@ -13,16 +12,15 @@ namespace BtcTurkApiCore.Websocket;
 public class BtcTurkPrivateWebsocketClient : IBtcTurkPrivateWebSocketClient
 {
     private ClientWebSocket _clientWebSocket;
-    private Uri _uri = new Uri("wss://ws-feed-sandbox.btctrader.com/");
-    private BtcTurkApiOptions _options = new BtcTurkApiOptions();
+    private Uri _uri = new Uri("wss://ws-feed-pro.btcturk.com");
+    private BtcTurkWebSocketOptions _options = new BtcTurkWebSocketOptions();
     
     public event Action<OrderMatched>? OnOrderMatched;
     public event Action<OrderInserted>? OnOrderInserted;
     public event Action<OrderDeleted>? OnOrderDeleted;
-    public event Action<OrderUpdated>? OnOrderUpdated;
     public event Action<UserTrade>? OnUserTrade;
     
-    public async Task StartSocketClientAsync(BtcTurkApiOptions options, CancellationToken cancellationToken = default)
+    public async Task StartSocketClientAsync(BtcTurkWebSocketOptions options, CancellationToken cancellationToken = default)
     {
         if (options == null || string.IsNullOrEmpty(options.PublicKey) || string.IsNullOrEmpty(options.PrivateKey))
         {
@@ -33,7 +31,28 @@ public class BtcTurkPrivateWebsocketClient : IBtcTurkPrivateWebSocketClient
         _clientWebSocket = new ClientWebSocket();
         await _clientWebSocket.ConnectAsync(_uri, cancellationToken);
         
-        _ = Task.Run(async () => { await GetPrivateSocketMessages(cancellationToken); }, cancellationToken);
+        _ = Task.Run(async () =>
+        {
+            if (_options.AutoReconnect)
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    try
+                    {
+                        _clientWebSocket = new ClientWebSocket();
+                        await GetPrivateSocketMessages(cancellationToken);
+                    }
+                    finally
+                    {
+                        await Task.Delay(1000, cancellationToken);
+                    }
+                }
+            }
+            else
+            {
+                await GetPrivateSocketMessages(cancellationToken);
+            }
+        }, cancellationToken);
     }
 
     public Task StopSocketClientAsync()
@@ -110,11 +129,6 @@ public class BtcTurkPrivateWebsocketClient : IBtcTurkPrivateWebSocketClient
                         OrderDeleted? orderDeleted = await resultMessage.GetResponse<OrderDeleted>();
                         if (orderDeleted != null) OnOrderDeleted?.Invoke(orderDeleted);
                         break;
-
-                    case 453:
-                        OrderUpdated? orderUpdated = await resultMessage.GetResponse<OrderUpdated>();
-                        if (orderUpdated != null) OnOrderUpdated?.Invoke(orderUpdated);
-                        break;
                 }
             }
             catch (Exception e)
@@ -127,12 +141,12 @@ public class BtcTurkPrivateWebsocketClient : IBtcTurkPrivateWebSocketClient
 
     private static string ComputeHash(string privateKey, string baseString)
     {
-        var key = Convert.FromBase64String(privateKey);
+        byte[] key = Convert.FromBase64String(privateKey);
         string hashString;
 
-        using (var hmac = new HMACSHA256(key))
+        using (HMACSHA256 hmac = new HMACSHA256(key))
         {
-            var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(baseString));
+            byte[] hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(baseString));
             hashString = Convert.ToBase64String(hash);
         }
 
@@ -141,7 +155,7 @@ public class BtcTurkPrivateWebsocketClient : IBtcTurkPrivateWebSocketClient
 
     private async Task<string> ReceiveMessageAsync(ClientWebSocket client, CancellationToken cancellationToken)
     {
-        byte[] buffer = new byte[1024 * 16];
+        byte[] buffer = new byte[_options.ReceiveMessageBuffer];
 
         WebSocketReceiveResult result;
         StringBuilder resultMessageBuilder = new StringBuilder();

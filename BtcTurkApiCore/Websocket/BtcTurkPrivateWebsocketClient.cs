@@ -14,7 +14,7 @@ public class BtcTurkPrivateWebsocketClient : IBtcTurkPrivateWebSocketClient
 {
     private ClientWebSocket _clientWebSocket;
     private Uri _uri = new Uri("wss://ws-feed-sandbox.btctrader.com/");
-    private BtcTurkApiOptions _options;
+    private BtcTurkApiOptions _options = new BtcTurkApiOptions();
     
     public event Action<OrderMatched>? OnOrderMatched;
     public event Action<OrderInserted>? OnOrderInserted;

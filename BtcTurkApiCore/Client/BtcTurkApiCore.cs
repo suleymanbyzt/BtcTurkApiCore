@@ -131,11 +131,6 @@ public class BtcTurkApiCore : IBtcTurkApiCore
     {
         List<string> parameters = new List<string>();
 
-        if (String.IsNullOrWhiteSpace(request.PairSymbol) || (request.From == null && request.To == null))
-        {
-            throw new ApplicationException("parameters cannot be null");
-        }
-
         parameters.Add($"pair={request.PairSymbol}");
         parameters.Add($"from={request.From}");
         parameters.Add($"to={request.To}");
@@ -149,11 +144,6 @@ public class BtcTurkApiCore : IBtcTurkApiCore
     public async Task<Kline> GetKlines(QueryKlineRequest request)
     {
         List<string> parameters = new List<string>();
-
-        if (String.IsNullOrWhiteSpace(request.PairSymbol) || (request.From == null && request.To == null) || request.Resolution == null)
-        {
-            throw new ApplicationException("parameters cannot be null");
-        }
 
         parameters.Add($"symbol={request.PairSymbol}");
         parameters.Add($"from={request.From}");

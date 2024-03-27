@@ -54,7 +54,6 @@ Samples.cs
         _btcTurkPrivateWebSocketClient.OnOrderInserted += OnOrderInserted;
         _btcTurkPrivateWebSocketClient.OnOrderMatched += OnOrderMatched;
         _btcTurkPrivateWebSocketClient.OnOrderDeleted += OnOrderDeleted;
-        _btcTurkPrivateWebSocketClient.OnOrderUpdated += OnOrderUpdated;
         _btcTurkPrivateWebSocketClient.OnUserTrade += OnUserTrade;
     }
     
@@ -63,10 +62,12 @@ Samples.cs
         try
         {
             // Connect to private websocket
-            await _btcTurkPrivateWebSocketClient.StartSocketClientAsync(new BtcTurkApiOptions()
+            await _btcTurkPrivateWebSocketClient.StartSocketClientAsync(new BtcTurkWebSocketOptions()
             {
                 PublicKey = "YOUR_PUBLIC_KEY",
-                PrivateKey = "YOUR_PRIVATE_KEY"
+                PrivateKey = "YOUR_PRIVATE_KEY",
+                AutoReconnect = true,
+                ReceiveMessageBuffer = 1024 * 1024
             }, stoppingToken);
                 
 
@@ -110,11 +111,6 @@ Samples.cs
     }
 
     private void OnUserTrade(UserTrade obj)
-    {
-        Console.WriteLine(JsonConvert.SerializeObject(obj));
-    }
-
-    private void OnOrderUpdated(OrderUpdated obj)
     {
         Console.WriteLine(JsonConvert.SerializeObject(obj));
     }

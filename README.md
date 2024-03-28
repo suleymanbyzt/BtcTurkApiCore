@@ -48,6 +48,7 @@ Samples.cs
         _btcTurkPublicWebSocketClient.OnTickerAll += OnTickerAll;
         _btcTurkPublicWebSocketClient.OnTickerPair += OnTickerPair;
         _btcTurkPublicWebSocketClient.OnTradeSingle += OnTradeSingle;
+        _btcTurkPublicWebSocketClient.OnError += OnError;
         
         //OPTINAL
         //Private WebSocket Events These events are triggered when the data is received from the socket.
@@ -55,6 +56,7 @@ Samples.cs
         _btcTurkPrivateWebSocketClient.OnOrderMatched += OnOrderMatched;
         _btcTurkPrivateWebSocketClient.OnOrderDeleted += OnOrderDeleted;
         _btcTurkPrivateWebSocketClient.OnUserTrade += OnUserTrade;
+        _btcTurkPrivateWebSocketClient.OnError += OnError;
     }
     
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -146,6 +148,11 @@ Samples.cs
     }
 
     private void OnOrderBook(OrderBookFull obj)
+    {
+        Console.WriteLine(JsonConvert.SerializeObject(obj));
+    }
+     
+    private void OnError(Exception obj)
     {
         Console.WriteLine(JsonConvert.SerializeObject(obj));
     }

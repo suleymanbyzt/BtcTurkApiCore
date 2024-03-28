@@ -19,6 +19,7 @@ public class BtcTurkPrivateWebsocketClient : IBtcTurkPrivateWebSocketClient
     public event Action<OrderInserted>? OnOrderInserted;
     public event Action<OrderDeleted>? OnOrderDeleted;
     public event Action<UserTrade>? OnUserTrade;
+    public event Action<Exception>? OnError;
     
     public async Task StartSocketClientAsync(BtcTurkWebSocketOptions options, CancellationToken cancellationToken = default)
     {
@@ -28,29 +29,39 @@ public class BtcTurkPrivateWebsocketClient : IBtcTurkPrivateWebSocketClient
         }
 
         _options = options;
+        
         _clientWebSocket = new ClientWebSocket();
         await _clientWebSocket.ConnectAsync(_uri, cancellationToken);
-        
+        await SendSubscriptionRequest(cancellationToken);
+
         _ = Task.Run(async () =>
         {
-            if (_options.AutoReconnect)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                while (!cancellationToken.IsCancellationRequested)
+                if (_options.AutoReconnect)
                 {
-                    try
+                    if (_clientWebSocket.State != WebSocketState.Open)
                     {
                         _clientWebSocket = new ClientWebSocket();
-                        await GetPrivateSocketMessages(cancellationToken);
+                        await _clientWebSocket.ConnectAsync(_uri, cancellationToken);
+                        await SendSubscriptionRequest(cancellationToken);
                     }
-                    finally
-                    {
-                        await Task.Delay(1000, cancellationToken);
-                    }
+                    
+                    await GetPrivateSocketMessages(cancellationToken);
                 }
-            }
-            else
-            {
-                await GetPrivateSocketMessages(cancellationToken);
+                else
+                {
+                    if (_clientWebSocket.State != WebSocketState.Open)
+                    {
+                        _clientWebSocket = new ClientWebSocket();
+                        await _clientWebSocket.ConnectAsync(_uri, cancellationToken);
+                        await SendSubscriptionRequest(cancellationToken);
+                    }
+                    
+                    await GetPrivateSocketMessages(cancellationToken);
+                    
+                    break;
+                }
             }
         }, cancellationToken);
     }
@@ -66,30 +77,12 @@ public class BtcTurkPrivateWebsocketClient : IBtcTurkPrivateWebSocketClient
         await StopSocketClientAsync();
         await StartSocketClientAsync(_options);
     }
-    
+
     private async Task GetPrivateSocketMessages(CancellationToken cancellationToken)
     {
-        string publicKey = _options.PublicKey;
-        string privateKey = _options.PrivateKey;
-        long nonce = 15000;
-        string baseString = $"{publicKey}{nonce}";
-        string signature = ComputeHash(privateKey, baseString);
-        long timestamp = DateTime.UtcNow.ToUnixTime();
-        
-        object[] hmacMessageObject = { 114, new { type = 114, publicKey = publicKey, timestamp = timestamp, nonce = nonce, signature = signature } };
-        
-        string message = JsonSerializer.Serialize(hmacMessageObject);
-
-        await _clientWebSocket.SendAsync(new ArraySegment<byte>(array: Encoding.UTF8.GetBytes(message),
-                0,
-                message.Length),
-            WebSocketMessageType.Text,
-            true,
-            cancellationToken);
-
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            try
+            while (_clientWebSocket.State == WebSocketState.Open)
             {
                 string resultMessage = await ReceiveMessageAsync(_clientWebSocket, cancellationToken);
 
@@ -104,10 +97,11 @@ public class BtcTurkPrivateWebsocketClient : IBtcTurkPrivateWebSocketClient
                     UserLogin? userLoginResult = await resultMessage.GetResponse<UserLogin>();
                     if (userLoginResult != null && !userLoginResult.Ok)
                     {
-                        throw new WebSocketException("Problem occurred during authentication.");
+                        _clientWebSocket.Dispose();
+                        throw new Exception($"BtcTurkPrivateWebSocket Authentication Error! Please make sure your public key, private key and IP Address are correct. If you are not sure of your IP Address, please check your IP Address from https://www.whatismyip.com/ - Socket Message: {resultMessage}");
                     }
                 }
-                
+
                 switch (messageId)
                 {
                     case 423:
@@ -131,12 +125,35 @@ public class BtcTurkPrivateWebsocketClient : IBtcTurkPrivateWebSocketClient
                         break;
                 }
             }
-            catch (Exception e)
-            {
-                _clientWebSocket.Dispose();
-                throw new Exception("WebSocket connection closed.", e);
-            }
+
+            throw new Exception("WebSocket connection is closed.");
         }
+        catch (Exception e)
+        {
+            _clientWebSocket.Dispose();
+            OnError?.Invoke(e);
+        }
+    }
+
+    private async Task SendSubscriptionRequest(CancellationToken cancellationToken)
+    {
+        string publicKey = _options.PublicKey;
+        string privateKey = _options.PrivateKey;
+        long nonce = 15000;
+        string baseString = $"{publicKey}{nonce}";
+        string signature = ComputeHash(privateKey, baseString);
+        long timestamp = DateTime.UtcNow.ToUnixTime();
+
+        object[] hmacMessageObject = { 114, new { type = 114, publicKey = publicKey, timestamp = timestamp, nonce = nonce, signature = signature } };
+
+        string message = JsonSerializer.Serialize(hmacMessageObject);
+
+        await _clientWebSocket.SendAsync(new ArraySegment<byte>(array: Encoding.UTF8.GetBytes(message),
+                0,
+                message.Length),
+            WebSocketMessageType.Text,
+            true,
+            cancellationToken);
     }
 
     private static string ComputeHash(string privateKey, string baseString)

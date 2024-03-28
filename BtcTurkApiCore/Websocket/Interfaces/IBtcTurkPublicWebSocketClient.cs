@@ -32,6 +32,11 @@ public interface IBtcTurkPublicWebSocketClient
     /// Event called when TradingView message received from WebSocket.
     /// </summary>
     event Action<TradingView> OnTradingView;
+    
+    /// <summary>
+    /// Event called when an error occurs during WebSocket communication.
+    /// </summary>
+    event Action<Exception> OnError;
 
     /// <summary>
     /// Starts the WebSocket client.

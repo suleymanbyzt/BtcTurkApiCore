@@ -12,19 +12,42 @@ public class BtcTurkPublicWebsocketClient : IBtcTurkPublicWebSocketClient
     private ClientWebSocket _clientWebSocket;
     private Uri _uri = new Uri("wss://ws-feed-pro.btcturk.com");
     private readonly TaskCompletionSource _socketTaskCompletionSource = new TaskCompletionSource();
+    private bool _isSocketStopped = false;
 
     public event Action<TickerAll>? OnTickerAll;
     public event Action<TickerPair>? OnTickerPair;
     public event Action<OrderBookFull>? OnOrderBook;
     public event Action<TradeSingle>? OnTradeSingle;
     public event Action<TradingView>? OnTradingView;
+    public event Action<Exception>? OnError; 
 
     public async Task StartSocketClientAsync(CancellationToken cancellationToken = default)
     {
+        _isSocketStopped = false;
+        
         _clientWebSocket = new ClientWebSocket();
         await _clientWebSocket.ConnectAsync(_uri, cancellationToken);
 
-        _ = Task.Run(async () => { await GetSocketMessages(cancellationToken); }, cancellationToken);
+        _ = Task.Run(async () =>
+        {
+            while (!cancellationToken.IsCancellationRequested && !_isSocketStopped)
+            {
+                try
+                {
+                    if (_clientWebSocket.State != WebSocketState.Open)
+                    {
+                        _clientWebSocket = new ClientWebSocket();
+                        await _clientWebSocket.ConnectAsync(_uri, cancellationToken);
+                    }
+                
+                    await GetSocketMessages(cancellationToken);
+                }
+                finally
+                {
+                    await Task.Delay(1000, cancellationToken);
+                }
+            }
+        }, cancellationToken);
 
         await _socketTaskCompletionSource.Task;
     }
@@ -32,6 +55,7 @@ public class BtcTurkPublicWebsocketClient : IBtcTurkPublicWebSocketClient
     public Task StopSocketClientAsync()
     {
         _clientWebSocket.Dispose();
+        _isSocketStopped = true;
         return Task.CompletedTask;
     }
 
@@ -58,7 +82,7 @@ public class BtcTurkPublicWebsocketClient : IBtcTurkPublicWebSocketClient
     {
         byte[] buffer = new byte[1024 * 1024];
 
-        while (!cancellationToken.IsCancellationRequested)
+        while (_clientWebSocket.State == WebSocketState.Open)
         {
             try
             {
@@ -104,7 +128,7 @@ public class BtcTurkPublicWebsocketClient : IBtcTurkPublicWebSocketClient
             catch (Exception e)
             {
                 _clientWebSocket.Dispose();
-                throw new Exception("An error occurred while receiving messages from the socket.", e);
+                OnError?.Invoke(e);
             }
         }
     }

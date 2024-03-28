@@ -29,6 +29,12 @@ public interface IBtcTurkPrivateWebSocketClient
     event Action<UserTrade> OnUserTrade;
     
     /// <summary>
+    /// Event called when an error occurs during WebSocket communication.
+    /// </summary>
+    event Action<Exception> OnError;
+
+    
+    /// <summary>
     /// Starts the WebSocket client.
     /// </summary>
     /// <param name="options">BtcTurk WebSocket options</param>

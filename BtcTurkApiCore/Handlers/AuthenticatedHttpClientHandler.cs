@@ -21,19 +21,18 @@ public class AuthenticatedHttpClientHandler :  DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        long nonce = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeMilliseconds();
-        string message = _btcTurkApiOptions.PublicKey + _btcTurkApiOptions.Nonce;
-        using (HMACSHA256 hmac = new HMACSHA256(Convert.FromBase64String(_btcTurkApiOptions.PrivateKey)))
-        {
-            byte[] signatureBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
-            string signature = Convert.ToBase64String(signatureBytes);
+        long unixTimeMilliseconds = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeMilliseconds();
+        string message = _btcTurkApiOptions.PublicKey + unixTimeMilliseconds;
+        using HMACSHA256 hmac = new HMACSHA256(Convert.FromBase64String(_btcTurkApiOptions.PrivateKey));
+        byte[] signatureBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(message));
+        string signature = Convert.ToBase64String(signatureBytes);
 
-            request.Headers.Add("X-PCK", _btcTurkApiOptions.PrivateKey);
-            request.Headers.Add("X-Signature", signature);
-            request.Headers.Add("X-Stamp", nonce.ToString());
-            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-            return await base.SendAsync(request, cancellationToken);
-        }
+        request.Headers.Add("X-PCK", _btcTurkApiOptions.PublicKey);
+        request.Headers.Add("X-Signature", signature);
+        request.Headers.Add("X-Stamp", unixTimeMilliseconds.ToString());
+        request.Headers.Add("X-Nonce", _btcTurkApiOptions.Nonce.ToString());
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        
+        return await base.SendAsync(request, cancellationToken);
     }
 }

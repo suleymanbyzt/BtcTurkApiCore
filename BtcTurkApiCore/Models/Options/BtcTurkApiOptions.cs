@@ -13,7 +13,7 @@ public class BtcTurkApiOptions
     public string PrivateKey { get; set; }
 
     /// <summary>
-    /// Delay tolerance for each request. Default is 10000ms (10 seconds).
+    /// Delay tolerance for each request. Default is 15000ms (15 seconds).
     /// </summary> 
-    public long Nonce { get; set; } = 10000;
+    public long Nonce { get; set; } = 15000;
 }
